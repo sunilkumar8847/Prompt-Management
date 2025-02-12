@@ -1,0 +1,22 @@
+.bg {
+  /* background-image: url('./bg1.jpg'); */
+  /* background-color: rgb(254, 223, 255); */
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center;
+  width: 100%;
+}
+
+.react-datepicker__input-container {
+  display: flex;
+  align-items: center !important;
+  width: 100%;
+}
+
+.react-datepicker__view-calendar-icon input {
+  display: block;
+  width: 100%;
+}
+.react-datepicker__view-calendar-icon input::placeholder {
+  font-size: 16px;
+}
