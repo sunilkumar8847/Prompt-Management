@@ -1,32 +1,68 @@
-//Dashboard.tsx
+// Dashboard.tsx
 import React, { useState, useEffect } from 'react';
 import { Project } from '../components/common/NewProject';
 import EditProject from '../components/common/EditProject';
 import ProjectDetail from '../components/common/ProjectDetail';
+import Loading from '../components/common/Loading';
+import { projectApi } from '../Api/apiClient';
+import { toast } from '../hooks/use-toast';
 
 const Dashboard: React.FC = () => {
-    // ... keeping all the state and handlers the same ...
     const [projects, setProjects] = useState<Project[]>([]);
     const [editingProject, setEditingProject] = useState<Project | null>(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-
-    // ... keeping all the other functions the same ...
+    const [loading, setLoading] = useState(true);
+    const [operationLoading, setOperationLoading] = useState(false);
+    
     useEffect(() => {
-        const loadProjects = () => {
-            const storedProjects = JSON.parse(localStorage.getItem('projects') || '[]');
-            setProjects(storedProjects);
+        fetchProjects();
+        window.addEventListener('project-update', fetchProjects);
+        return () => {
+            window.removeEventListener('project-update', fetchProjects);
         };
-
-        loadProjects();
-        window.addEventListener('storage', loadProjects);
-        return () => window.removeEventListener('storage', loadProjects);
     }, []);
 
-    const handleDelete = (projectId: string) => {
-        const updatedProjects = projects.filter(project => project.id !== projectId);
-        localStorage.setItem('projects', JSON.stringify(updatedProjects));
-        setProjects(updatedProjects);
+    const fetchProjects = async () => {
+        setLoading(true);
+        try {
+            const response = await projectApi.getAllProjects();
+            const formattedProjects = response.data.map((project: any) => ({
+                id: project.project_id,
+                name: project.name,
+                description: project.description,
+                createdAt: new Date(project.created_at)
+            }));
+            setProjects(formattedProjects);
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Failed to fetch projects",
+                variant: "destructive"
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDelete = async (projectId: string) => {
+        setOperationLoading(true);
+        try {
+            await projectApi.deleteProject(projectId);
+            setProjects(projects.filter(project => project.id !== projectId));
+            toast({
+                title: "Success",
+                description: "Project deleted successfully"
+            });
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Failed to delete project",
+                variant: "destructive"
+            });
+        } finally {
+            setOperationLoading(false);
+        }
     };
 
     const handleEdit = (project: Project) => {
@@ -34,14 +70,40 @@ const Dashboard: React.FC = () => {
         setIsEditModalOpen(true);
     };
 
-    const handleUpdateProject = (updatedProject: Project) => {
-        const updatedProjects = projects.map(project =>
-            project.id === updatedProject.id ? updatedProject : project
-        );
-        localStorage.setItem('projects', JSON.stringify(updatedProjects));
-        setProjects(updatedProjects);
-        setIsEditModalOpen(false);
+    const handleUpdateProject = async (updatedProject: Project) => {
+        setOperationLoading(true);
+        try {
+            await projectApi.updateProject(updatedProject.id, {
+                name: updatedProject.name,
+                description: updatedProject.description
+            });
+            
+            setProjects(projects.map(project =>
+                project.id === updatedProject.id ? updatedProject : project
+            ));
+            setIsEditModalOpen(false);
+            toast({
+                title: "Success",
+                description: "Project updated successfully"
+            });
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Failed to update project",
+                variant: "destructive"
+            });
+        } finally {
+            setOperationLoading(false);
+        }
     };
+
+    if (loading) {
+        return <Loading />;
+    }
+
+    if (operationLoading) {
+        return <Loading />;
+    }
 
     const handleProjectDetails = (project: Project) => {
         setSelectedProject(project);

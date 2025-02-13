@@ -1,4 +1,4 @@
-//Navbar.tsx
+// Navbar.tsx
 import React, { useState } from 'react';
 import { AiOutlinePlus } from "react-icons/ai";
 import { 
@@ -8,19 +8,22 @@ import {
     IoLogOutOutline 
 } from "react-icons/io5";
 import NewProject from './NewProject';
+import { Project } from './NewProject';
+// import { projectApi } from '../../Api/apiClient';
+import { toast } from '../../hooks/use-toast';
 
 const Navbar: React.FC = () => {
     const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
 
-    const handleCreateProject = (projectData: { name: string; description: string }) => {
-        const projects = JSON.parse(localStorage.getItem('projects') || '[]');
-        const newProject = {
-            id: Date.now().toString(),
-            ...projectData,
-            createdAt: new Date()
-        };
-        localStorage.setItem('projects', JSON.stringify([...projects, newProject]));
-        window.dispatchEvent(new Event('storage'));
+    const handleCreateProject = async (project: Project) => {
+        // No need to make another API call since the project is already created
+        // Just dispatch the event to update the dashboard and show success message
+        window.dispatchEvent(new Event('project-update'));
+        
+        toast({
+            title: "Success",
+            description: "Project created successfully"
+        });
     };
 
     return (
@@ -60,32 +63,16 @@ const Navbar: React.FC = () => {
                 </div>
 
                 <div className="flex-1 flex justify-end items-center space-x-6 mr-8">
-                    <a 
-                        href="/home" 
-                        className="hover:text-purple-600 text-gray-600"
-                        title="Home"
-                    >
+                    <a href="/home" className="hover:text-purple-600 text-gray-600" title="Home">
                         <IoHomeOutline className="w-6 h-6" />
                     </a>
-                    <a 
-                        href="/settings" 
-                        className="hover:text-purple-600 text-gray-600"
-                        title="Settings"
-                    >
+                    <a href="/settings" className="hover:text-purple-600 text-gray-600" title="Settings">
                         <IoSettingsOutline className="w-6 h-6" />
                     </a>
-                    <a 
-                        href="/profile" 
-                        className="hover:text-purple-600 text-gray-600"
-                        title="Profile"
-                    >
+                    <a href="/profile" className="hover:text-purple-600 text-gray-600" title="Profile">
                         <IoPersonOutline className="w-6 h-6" />
                     </a>
-                    <a 
-                        href="/logout" 
-                        className="hover:text-red-600 text-gray-600"
-                        title="Logout"
-                    >
+                    <a href="/logout" className="hover:text-red-600 text-gray-600" title="Logout">
                         <IoLogOutOutline className="w-6 h-6" />
                     </a>
                 </div>

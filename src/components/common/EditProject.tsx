@@ -1,10 +1,12 @@
-//EditProjects.tsx
+// EditProject.tsx
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Project } from './NewProject';
+import { toast } from '../../hooks/use-toast';
+import Loading from './Loading';
 
 interface EditProjectProps {
   isOpen: boolean;
@@ -23,6 +25,7 @@ const EditProject: React.FC<EditProjectProps> = ({
     name: '',
     description: ''
   });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (project) {
@@ -33,16 +36,44 @@ const EditProject: React.FC<EditProjectProps> = ({
     }
   }, [project]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (project) {
+    if (!project) return;
+
+    if (!formData.name.trim() || !formData.description.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Project name and description are required",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
       const updatedProject = {
         ...project,
         name: formData.name,
         description: formData.description
       };
-      onUpdateProject(updatedProject);
+      
+      await onUpdateProject(updatedProject);
+      
+      toast({
+        title: "Success",
+        description: `Project "${formData.name}" updated successfully`,
+        variant: "default"
+      });
+      
       onClose();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to update project. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -51,6 +82,7 @@ const EditProject: React.FC<EditProjectProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
+        {loading && <Loading />}
         <DialogHeader>
           <DialogTitle>Edit Project</DialogTitle>
         </DialogHeader>
@@ -81,10 +113,20 @@ const EditProject: React.FC<EditProjectProps> = ({
             />
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => {
+                setFormData({
+                  name: project.name,
+                  description: project.description
+                });
+                onClose();
+              }}
+            >
               Cancel
             </Button>
-            <Button type="submit">Update Project</Button>
+            <Button type="submit" className="bg-indigo-600 text-white hover:bg-indigo-700">Update Project</Button>
           </DialogFooter>
         </form>
       </DialogContent>
