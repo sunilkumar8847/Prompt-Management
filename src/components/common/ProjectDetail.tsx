@@ -4,7 +4,7 @@ import { Slider } from '../ui/slider';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
-import { Eye } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react'; // Optionally import EyeOff if desired.
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import Loading from './Loading';
 import { toast } from '../../hooks/use-toast';
@@ -18,6 +18,12 @@ export interface Prompt {
   confidenceScore: number;
 }
 
+interface PromptCredentials {
+  project_id: string;
+  prompt_id: string;
+  secret_key: string;
+}
+
 interface ProjectDetailProps {
   project: {
     id: string;
@@ -28,7 +34,6 @@ interface ProjectDetailProps {
 }
 
 const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
-  // Remove localStorage usage – initialize prompt as null.
   const [prompt, setPrompt] = useState<Prompt | null>(null);
   const [loading, setLoading] = useState(false);
   const [promptName, setPromptName] = useState('');
@@ -36,6 +41,9 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
   const [confidenceScore, setConfidenceScore] = useState(50);
   const [isEditing, setIsEditing] = useState(false);
   const [showCredentials, setShowCredentials] = useState(false);
+  const [credentials, setCredentials] = useState<PromptCredentials | null>(null);
+  const [loadingCredentials, setLoadingCredentials] = useState(false);
+  const [showSecret, setShowSecret] = useState(false);
 
   // Fetch existing prompt (if any) from backend on mount
   useEffect(() => {
@@ -52,7 +60,6 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
           });
         }
       } catch (error: any) {
-        // If error status is 404, it means no prompt exists – do nothing.
         if (error?.response?.status === 404) {
           return;
         }
@@ -65,6 +72,36 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
     };
     fetchPrompt();
   }, [project.id]);
+
+  const fetchCredentials = async () => {
+    if (!prompt) return;
+    setLoadingCredentials(true);
+    try {
+      const response = await promptApi.getPromptDetails(prompt.id);
+      if (response.status === 200) {
+        setCredentials({
+          project_id: response.data.project_id,
+          prompt_id: response.data.prompt_id,
+          secret_key: response.data.secret_key
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch credentials",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingCredentials(false);
+    }
+  };
+
+  // Fetch credentials when modal is opened
+  useEffect(() => {
+    if (showCredentials && !credentials && prompt) {
+      fetchCredentials();
+    }
+  }, [showCredentials, credentials, prompt]);
 
   const handleCreateOrUpdatePrompt = async () => {
     setLoading(true);
@@ -140,6 +177,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
         setPromptName('');
         setPromptDescription('');
         setConfidenceScore(50);
+        setCredentials(null);
       }
     } catch (error) {
       toast({
@@ -177,22 +215,23 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
           <Loading />
         ) : (
           <>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={onBack}
-                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors duration-200"
-                >
-                  <IoIosArrowBack className="w-5 h-5" />
-                  <span>Back to Projects</span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Back to Projects</p>
-              </TooltipContent>
-            </Tooltip>
-  
             <div className="max-w-4xl mx-auto">
+              {/* Back button aligned with the box */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={onBack}
+                    className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors duration-200"
+                  >
+                    <IoIosArrowBack className="w-5 h-5" />
+                    <span>Back to Projects</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Back to Projects</p>
+                </TooltipContent>
+              </Tooltip>
+
               <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center space-x-4">
@@ -238,12 +277,12 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
                     </Tooltip>
                   </div>
                 </div>
-  
+
                 <div className="mb-6">
                   <h2 className="text-sm font-medium text-gray-500 mb-2">Description</h2>
                   <p className="text-gray-700">{project.description}</p>
                 </div>
-  
+
                 {prompt && !isEditing && (
                   <div className="bg-white rounded-lg">
                     <div className="border rounded-lg p-4 mb-4 shadow-sm">
@@ -263,7 +302,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
                     </div>
                   </div>
                 )}
-  
+
                 {(!prompt || isEditing) && (
                   <div className="border rounded-lg p-4 shadow-sm">
                     <div className="space-y-4">
@@ -346,67 +385,93 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
                     </div>
                   </div>
                 )}
-  
-  {prompt && !isEditing && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div
-                    className="flex justify-end mt-6"
-                    onClick={() => setShowCredentials(true)}
-                  >
-                    <Button
-                      variant="outline"
-                      className="bg-indigo-600 text-white hover:bg-indigo-700 flex items-center space-x-2"
-                    >
-                      <Eye className="w-4 h-4" />
-                      <span>Credentials</span>
-                    </Button>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>View credentials</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
-          </div>
-        </div>
 
-        {/* Credentials Modal */}
-        <Dialog open={showCredentials} onOpenChange={setShowCredentials}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-center text-xl font-semibold text-indigo-600">
-                Credentials
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-6 py-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Project ID:</label>
-                <Input value="IOJDS90I29IQK" readOnly className="bg-gray-50" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Prompt ID:</label>
-                <Input value="U38DHHDJ992" readOnly className="bg-gray-50" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Secret Key:</label>
-                <div className="relative">
-                  <Input
-                    type="text"
-                    value="PROMPT392919MANAGEMENT932"
-                    readOnly
-                    className="bg-gray-50 pr-10"
-                  />
-                  <Eye className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
-                </div>
+                {prompt && !isEditing && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div
+                        className="flex justify-end mt-6 cursor-pointer"
+                        onClick={() => setShowCredentials(true)}
+                      >
+                        <Button
+                          variant="outline"
+                          className="bg-indigo-600 text-white hover:bg-indigo-700 flex items-center space-x-2"
+                        >
+                          <Eye className="w-4 h-4" />
+                          <span>Credentials</span>
+                        </Button>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>View credentials</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
             </div>
-          </DialogContent>
-        </Dialog>
-      </>
-    )}
-  </div>
-</TooltipProvider>
+
+            {/* Credentials Modal */}
+            <Dialog open={showCredentials} onOpenChange={setShowCredentials}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="text-center text-xl font-semibold text-indigo-600">
+                    Credentials
+                  </DialogTitle>
+                </DialogHeader>
+                {loadingCredentials ? (
+                  <div className="py-8 flex justify-center">
+                    <Loading />
+                  </div>
+                ) : (
+                  <div className="space-y-6 py-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Project ID:</label>
+                      <Input 
+                        value={credentials?.project_id || project.id} 
+                        readOnly 
+                        className="bg-gray-50"
+                        onFocus={(e) => e.target.blur()} // Prevent auto-selection
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Prompt ID:</label>
+                      <Input 
+                        value={credentials?.prompt_id || prompt?.id || ""} 
+                        readOnly 
+                        className="bg-gray-50"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Secret Key:</label>
+                      <div className="relative">
+                        <Input
+                          type={showSecret ? "text" : "password"}
+                          value={credentials?.secret_key || ""}
+                          readOnly
+                          className="bg-gray-50 pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowSecret((prev) => !prev)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                          aria-label="Toggle secret key visibility"
+                        >
+                          {showSecret ? (
+                            <EyeOff className="w-4 h-4 text-gray-500" />
+                          ) : (
+                            <Eye className="w-4 h-4 text-gray-500" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
+          </>
+        )}
+      </div>
+    </TooltipProvider>
   );
 };
 
