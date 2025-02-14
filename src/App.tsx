@@ -3,6 +3,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/common/Navbar';
 import Dashboard from './pages/Dashboard';
+import { Toaster } from './components/ui/toaster';
 
 const App: React.FC = () => {
   return (
@@ -14,6 +15,7 @@ const App: React.FC = () => {
             <Route path="/" element={<Dashboard />} />
           </Routes>
         </div>
+        <Toaster />
       </div>
     </Router>
   );
