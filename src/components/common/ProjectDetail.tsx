@@ -122,7 +122,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
           description: "Project deleted successfully",
           variant: "default",
         });
-        onBack(); // Navigate back to projects list
+        onBack();
       }
     } catch (error) {
       toast({
@@ -278,7 +278,6 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
         ) : (
           <>
             <div className="max-w-4xl mx-auto">
-              {/* Back Button aligned with content */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
