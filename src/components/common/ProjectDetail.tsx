@@ -4,11 +4,11 @@ import { Slider } from '../ui/slider';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
-import { Eye, EyeOff } from 'lucide-react'; // Optionally import EyeOff if desired.
+import { Eye, EyeOff } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import Loading from './Loading';
 import { toast } from '../../hooks/use-toast';
-import { promptApi } from '../../Api/apiClient';
+import { promptApi, projectApi } from '../../Api/apiClient';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../ui/tooltip';
 
 export interface Prompt {
@@ -34,25 +34,33 @@ interface ProjectDetailProps {
 }
 
 const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
-  const [prompt, setPrompt] = useState<Prompt | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [promptName, setPromptName] = useState('');
-  const [promptDescription, setPromptDescription] = useState('');
-  const [confidenceScore, setConfidenceScore] = useState(50);
-  const [isEditing, setIsEditing] = useState(false);
+  // Prompt states
+  const [currentPrompt, setCurrentPrompt] = useState<Prompt | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [editedPromptName, setEditedPromptName] = useState('');
+  const [editedPromptDescription, setEditedPromptDescription] = useState('');
+  const [editedConfidenceScore, setEditedConfidenceScore] = useState(50);
+  const [isPromptEditing, setIsPromptEditing] = useState(false);
+
+  // Credential states
   const [showCredentials, setShowCredentials] = useState(false);
   const [credentials, setCredentials] = useState<PromptCredentials | null>(null);
-  const [loadingCredentials, setLoadingCredentials] = useState(false);
+  const [isCredentialsLoading, setIsCredentialsLoading] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
 
-  // Fetch existing prompt (if any) from backend on mount
+  // Project edit states
+  const [isProjectEditing, setIsProjectEditing] = useState(false);
+  const [editedProjectName, setEditedProjectName] = useState(project.name);
+  const [editedProjectDescription, setEditedProjectDescription] = useState(project.description);
+
+  // Load prompt from backend on mount
   useEffect(() => {
-    const fetchPrompt = async () => {
+    const loadPrompt = async () => {
       try {
         const response = await promptApi.getAllPrompts(project.id);
         if (response.status === 200 && response.data.length > 0) {
           const fetchedPrompt = response.data[0];
-          setPrompt({
+          setCurrentPrompt({
             id: fetchedPrompt.id,
             name: fetchedPrompt.prompt_name,
             description: fetchedPrompt.description,
@@ -70,14 +78,15 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
         });
       }
     };
-    fetchPrompt();
+    loadPrompt();
   }, [project.id]);
 
-  const fetchCredentials = async () => {
-    if (!prompt) return;
-    setLoadingCredentials(true);
+  // Load credentials when credential modal opens
+  const loadCredentials = async () => {
+    if (!currentPrompt) return;
+    setIsCredentialsLoading(true);
     try {
-      const response = await promptApi.getPromptDetails(prompt.id);
+      const response = await promptApi.getPromptDetails(currentPrompt.id);
       if (response.status === 200) {
         setCredentials({
           project_id: response.data.project_id,
@@ -92,27 +101,78 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
         variant: "destructive"
       });
     } finally {
-      setLoadingCredentials(false);
+      setIsCredentialsLoading(false);
     }
   };
 
-  // Fetch credentials when modal is opened
   useEffect(() => {
-    if (showCredentials && !credentials && prompt) {
-      fetchCredentials();
+    if (showCredentials && !credentials && currentPrompt) {
+      loadCredentials();
     }
-  }, [showCredentials, credentials, prompt]);
+  }, [showCredentials, credentials, currentPrompt]);
 
-  const handleCreateOrUpdatePrompt = async () => {
-    setLoading(true);
+  // Handle project deletion
+  const deleteProjectHandler = async () => {
+    setIsLoading(true);
     try {
-      if (isEditing && prompt) {
-        // Update existing prompt
-        const response = await promptApi.updatePrompt(prompt.id, {
-          name: promptName,
-          prompt: promptName, // Assuming prompt text is same as name; adjust if needed.
-          description: promptDescription,
-          confidence_score: confidenceScore
+      const response = await projectApi.deleteProject(project.id);
+      if (response.status === 200) {
+        toast({
+          title: "Success",
+          description: "Project deleted successfully",
+          variant: "default",
+        });
+        onBack(); // Navigate back to projects list
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete project",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle project update
+  const updateProjectHandler = async () => {
+    setIsLoading(true);
+    try {
+      const response = await projectApi.updateProject(project.id, {
+        name: editedProjectName,
+        description: editedProjectDescription
+      });
+      if (response.status === 200) {
+        toast({
+          title: "Success",
+          description: "Project updated successfully",
+          variant: "default",
+        });
+        setIsProjectEditing(false);
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update project",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle prompt create/update
+  const savePromptHandler = async () => {
+    setIsLoading(true);
+    try {
+      if (isPromptEditing && currentPrompt) {
+        // Update prompt
+        const response = await promptApi.updatePrompt(currentPrompt.id, {
+          name: editedPromptName,
+          prompt: editedPromptName,
+          description: editedPromptDescription,
+          confidence_score: editedConfidenceScore
         });
         if (response.status === 200) {
           toast({
@@ -120,21 +180,21 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
             description: "Prompt updated successfully",
             variant: "default",
           });
-          setPrompt({
-            id: prompt.id,
-            name: promptName,
-            description: promptDescription,
-            confidenceScore: confidenceScore
+          setCurrentPrompt({
+            id: currentPrompt.id,
+            name: editedPromptName,
+            description: editedPromptDescription,
+            confidenceScore: editedConfidenceScore
           });
-          setIsEditing(false);
+          setIsPromptEditing(false);
         }
       } else {
-        // Create a new prompt
+        // Create new prompt
         const newPromptData = {
-          prompt_name: promptName,
-          prompt: promptName,
-          description: promptDescription,
-          confidence_score: confidenceScore
+          prompt_name: editedPromptName,
+          prompt: editedPromptName,
+          description: editedPromptDescription,
+          confidence_score: editedConfidenceScore
         };
         const response = await promptApi.createPrompt(project.id, newPromptData);
         if (response.status === 200 || response.status === 201) {
@@ -143,11 +203,11 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
             description: "Prompt created successfully",
             variant: "default",
           });
-          setPrompt({
+          setCurrentPrompt({
             id: response.data.id,
-            name: promptName,
-            description: promptDescription,
-            confidenceScore: confidenceScore
+            name: editedPromptName,
+            description: editedPromptDescription,
+            confidenceScore: editedConfidenceScore
           });
         }
       }
@@ -158,25 +218,26 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
         variant: "destructive"
       });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const handleDelete = async () => {
-    if (!prompt) return;
-    setLoading(true);
+  // Handle prompt deletion
+  const deletePromptHandler = async () => {
+    if (!currentPrompt) return;
+    setIsLoading(true);
     try {
-      const response = await promptApi.deletePrompt(prompt.id);
+      const response = await promptApi.deletePrompt(currentPrompt.id);
       if (response.status === 200) {
         toast({
           title: "Success",
           description: "Prompt deleted successfully",
           variant: "default",
         });
-        setPrompt(null);
-        setPromptName('');
-        setPromptDescription('');
-        setConfidenceScore(50);
+        setCurrentPrompt(null);
+        setEditedPromptName('');
+        setEditedPromptDescription('');
+        setEditedConfidenceScore(50);
         setCredentials(null);
       }
     } catch (error) {
@@ -186,37 +247,38 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
         variant: "destructive"
       });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const handleEdit = () => {
-    if (prompt) {
-      setPromptName(prompt.name);
-      setPromptDescription(prompt.description);
-      setConfidenceScore(prompt.confidenceScore);
-      setIsEditing(true);
+  // Handle editing prompt
+  const editPromptHandler = () => {
+    if (currentPrompt) {
+      setEditedPromptName(currentPrompt.name);
+      setEditedPromptDescription(currentPrompt.description);
+      setEditedConfidenceScore(currentPrompt.confidenceScore);
+      setIsPromptEditing(true);
     }
   };
 
-  // Update input fields when prompt state changes
+  // Sync prompt state with edit fields when prompt changes
   useEffect(() => {
-    if (prompt) {
-      setPromptName(prompt.name);
-      setPromptDescription(prompt.description);
-      setConfidenceScore(prompt.confidenceScore);
+    if (currentPrompt) {
+      setEditedPromptName(currentPrompt.name);
+      setEditedPromptDescription(currentPrompt.description);
+      setEditedConfidenceScore(currentPrompt.confidenceScore);
     }
-  }, [prompt]);
+  }, [currentPrompt]);
 
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-gray-50 p-8">
-        {loading ? (
+        {isLoading ? (
           <Loading />
         ) : (
           <>
             <div className="max-w-4xl mx-auto">
-              {/* Back button aligned with the box */}
+              {/* Back Button aligned with content */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -241,14 +303,63 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
                       </svg>
                     </div>
                     <div>
-                      <h1 className="text-xl font-semibold">Project: {project.name}</h1>
+                      {isProjectEditing ? (
+                        <div className="space-y-2">
+                          <Input
+                            value={editedProjectName}
+                            onChange={(e) => setEditedProjectName(e.target.value)}
+                            className="text-xl font-semibold"
+                            placeholder="Project name"
+                          />
+                          <Textarea
+                            value={editedProjectDescription}
+                            onChange={(e) => setEditedProjectDescription(e.target.value)}
+                            placeholder="Project description"
+                            className="mt-2"
+                          />
+                          <div className="flex space-x-2 mt-2">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => {
+                                    setIsProjectEditing(false);
+                                    setEditedProjectName(project.name);
+                                    setEditedProjectDescription(project.description);
+                                  }}
+                                >
+                                  Cancel
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Cancel editing project</p>
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  onClick={updateProjectHandler}
+                                  className="bg-indigo-600 text-white hover:bg-indigo-700"
+                                >
+                                  Save Changes
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Save project changes</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </div>
+                      ) : (
+                        <h1 className="text-xl font-semibold">Project: {project.name}</h1>
+                      )}
                     </div>
                   </div>
                   <div className="flex space-x-2">
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
-                          onClick={handleEdit}
+                          onClick={() => setIsProjectEditing(true)}
                           className="p-2 rounded-full hover:bg-indigo-50 text-indigo-600 transition-colors duration-200"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -257,13 +368,13 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
                         </button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Edit prompt</p>
+                        <p>Edit Project</p>
                       </TooltipContent>
                     </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
-                          onClick={handleDelete}
+                          onClick={deleteProjectHandler}
                           className="p-2 rounded-full hover:bg-red-50 text-red-600 transition-colors duration-200"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -272,7 +383,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
                         </button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Delete prompt</p>
+                        <p>Delete Project</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>
@@ -283,27 +394,59 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
                   <p className="text-gray-700">{project.description}</p>
                 </div>
 
-                {prompt && !isEditing && (
+                {currentPrompt && !isPromptEditing && (
                   <div className="bg-white rounded-lg">
                     <div className="border rounded-lg p-4 mb-4 shadow-sm">
                       <div className="flex justify-between items-center mb-4">
                         <div>
-                          <h3 className="text-lg font-semibold mb-1">Prompt 1: {prompt.name}</h3>
+                          <h3 className="text-lg font-semibold mb-1">Prompt 1: {currentPrompt.name}</h3>
                           <div className="flex items-center space-x-2">
                             <span className="text-sm text-gray-500">Confidence Score:</span>
-                            <span className="text-sm font-semibold text-indigo-600">{prompt.confidenceScore}%</span>
+                            <span className="text-sm font-semibold text-indigo-600">{currentPrompt.confidenceScore}%</span>
                           </div>
+                        </div>
+                        <div className="flex space-x-2">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={editPromptHandler}
+                                className="p-2 rounded-full hover:bg-indigo-50 text-indigo-600 transition-colors duration-200"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Edit prompt</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={deletePromptHandler}
+                                className="p-2 rounded-full hover:bg-red-50 text-red-600 transition-colors duration-200"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Delete prompt</p>
+                            </TooltipContent>
+                          </Tooltip>
                         </div>
                       </div>
                       <div>
                         <h4 className="text-sm font-medium text-gray-500 mb-2">Description</h4>
-                        <p className="text-gray-700">{prompt.description}</p>
+                        <p className="text-gray-700">{currentPrompt.description}</p>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {(!prompt || isEditing) && (
+                {(!currentPrompt || isPromptEditing) && (
                   <div className="border rounded-lg p-4 shadow-sm">
                     <div className="space-y-4">
                       <div>
@@ -311,8 +454,8 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
                           Prompt Name
                         </label>
                         <Input
-                          value={promptName}
-                          onChange={(e) => setPromptName(e.target.value)}
+                          value={editedPromptName}
+                          onChange={(e) => setEditedPromptName(e.target.value)}
                           placeholder="Enter prompt name"
                         />
                       </div>
@@ -321,8 +464,8 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
                           Description
                         </label>
                         <Textarea
-                          value={promptDescription}
-                          onChange={(e) => setPromptDescription(e.target.value)}
+                          value={editedPromptDescription}
+                          onChange={(e) => setEditedPromptDescription(e.target.value)}
                           placeholder="Enter prompt description"
                           className="min-h-[100px]"
                         />
@@ -333,30 +476,30 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
                         </label>
                         <div className="flex items-center space-x-4">
                           <Slider
-                            value={[confidenceScore]}
-                            onValueChange={(value) => setConfidenceScore(value[0])}
+                            value={[editedConfidenceScore]}
+                            onValueChange={(value) => setEditedConfidenceScore(value[0])}
                             max={100}
                             step={1}
                             className="flex-1"
                           />
                           <span className="text-sm font-medium text-gray-900 w-12 text-right">
-                            {confidenceScore}%
+                            {editedConfidenceScore}%
                           </span>
                         </div>
                       </div>
                     </div>
                     <div className="mt-6 flex justify-end space-x-2">
-                      {isEditing && (
+                      {isPromptEditing && (
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button
                               variant="outline"
                               onClick={() => {
-                                setIsEditing(false);
-                                if (prompt) {
-                                  setPromptName(prompt.name);
-                                  setPromptDescription(prompt.description);
-                                  setConfidenceScore(prompt.confidenceScore);
+                                setIsPromptEditing(false);
+                                if (currentPrompt) {
+                                  setEditedPromptName(currentPrompt.name);
+                                  setEditedPromptDescription(currentPrompt.description);
+                                  setEditedConfidenceScore(currentPrompt.confidenceScore);
                                 }
                               }}
                             >
@@ -371,22 +514,22 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button
-                            onClick={handleCreateOrUpdatePrompt}
-                            disabled={!promptName.trim()}
+                            onClick={savePromptHandler}
+                            disabled={!editedPromptName.trim()}
                             className="bg-indigo-600 text-white hover:bg-indigo-700"
                           >
-                            {isEditing ? 'Update Prompt' : 'Create Prompt'}
+                            {isPromptEditing ? 'Update Prompt' : 'Create Prompt'}
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>{isEditing ? 'Update prompt' : 'Create prompt'}</p>
+                          <p>{isPromptEditing ? 'Update prompt' : 'Create prompt'}</p>
                         </TooltipContent>
                       </Tooltip>
                     </div>
                   </div>
                 )}
 
-                {prompt && !isEditing && (
+                {currentPrompt && !isPromptEditing && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div
@@ -418,7 +561,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
                     Credentials
                   </DialogTitle>
                 </DialogHeader>
-                {loadingCredentials ? (
+                {isCredentialsLoading ? (
                   <div className="py-8 flex justify-center">
                     <Loading />
                   </div>
@@ -426,18 +569,18 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
                   <div className="space-y-6 py-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Project ID:</label>
-                      <Input 
-                        value={credentials?.project_id || project.id} 
-                        readOnly 
+                      <Input
+                        value={credentials?.project_id || project.id}
+                        readOnly
                         className="bg-gray-50"
                         onFocus={(e) => e.target.blur()} // Prevent auto-selection
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Prompt ID:</label>
-                      <Input 
-                        value={credentials?.prompt_id || prompt?.id || ""} 
-                        readOnly 
+                      <Input
+                        value={credentials?.prompt_id || currentPrompt?.id || ""}
+                        readOnly
                         className="bg-gray-50"
                       />
                     </div>
