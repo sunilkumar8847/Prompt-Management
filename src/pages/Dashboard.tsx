@@ -6,6 +6,9 @@ import Loading from '../components/common/Loading';
 import { projectApi } from '../Api/apiClient';
 import { toast } from '../hooks/use-toast';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../components/ui/tooltip';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
+import { Button } from '../components/ui/button';
+import { X } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -16,7 +19,11 @@ const Dashboard: React.FC = () => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [operationLoading, setOperationLoading] = useState(false);
-  
+
+  // New states for delete confirmation
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+
   useEffect(() => {
     fetchProjects();
     
@@ -81,11 +88,19 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const handleDelete = async (projectId: string) => {
+  // New delete handling: show confirmation dialog first
+  const handleDeleteClick = (project: Project) => {
+    setProjectToDelete(project);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!projectToDelete) return;
+
     setOperationLoading(true);
     try {
-      await projectApi.deleteProject(projectId);
-      const updatedProjects = allProjects.filter(project => project.id !== projectId);
+      await projectApi.deleteProject(projectToDelete.id);
+      const updatedProjects = allProjects.filter(project => project.id !== projectToDelete.id);
       setProjects(updatedProjects);
       setAllProjects(updatedProjects);
       toast({
@@ -100,6 +115,8 @@ const Dashboard: React.FC = () => {
       });
     } finally {
       setOperationLoading(false);
+      setShowDeleteConfirm(false);
+      setProjectToDelete(null);
     }
   };
 
@@ -142,11 +159,7 @@ const Dashboard: React.FC = () => {
     setSelectedProject(project);
   };
 
-  if (loading) {
-    return <Loading />;
-  }
-
-  if (operationLoading) {
+  if (loading || operationLoading) {
     return <Loading />;
   }
 
@@ -228,7 +241,7 @@ const Dashboard: React.FC = () => {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleDelete(project.id);
+                                handleDeleteClick(project);
                               }}
                               className="p-2 rounded-full hover:bg-red-50 text-red-600 transition-colors duration-200"
                             >
@@ -277,6 +290,40 @@ const Dashboard: React.FC = () => {
             </div>
           )}
         </div>
+
+        <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <AlertDialogContent className="sm:max-w-[425px]">
+            <AlertDialogHeader>
+              <div className="flex justify-between items-center">
+                <AlertDialogTitle className="text-lg font-semibold text-gray-900">
+                  Delete Project
+                </AlertDialogTitle>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 p-0 hover:bg-gray-100 rounded-full"
+                  onClick={() => setShowDeleteConfirm(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <AlertDialogDescription className="mt-4 text-sm text-gray-500">
+                Are you sure you want to delete this project? This action cannot be undone and all associated data will be permanently lost.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="mt-6">
+              <AlertDialogCancel className="bg-gray-100 hover:bg-gray-200 text-gray-900">
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={confirmDelete}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                Delete Project
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <EditProject
           isOpen={isEditModalOpen}

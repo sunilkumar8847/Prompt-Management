@@ -462,13 +462,13 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-6 w-6 p-0 hover:bg-gray-100 rounded-full"
+                              className="h-6 w-6 p-0 hover:bg-gray-300 rounded-full"
                               onClick={() => setShowDeleteConfirm(false)}
                             >
-                              <X className="h-4 w-4 mb-8 ml-8" />
+                              <X className="h-4 w-4" />
                             </Button>
                           </div>
-                          <AlertDialogDescription className="mt-4 text-sm text-gray-500">
+                          <AlertDialogDescription className="mt-8 text-sm text-gray-500">
                             Are you sure you want to delete this project? This action cannot be undone and all associated data will be permanently lost.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
