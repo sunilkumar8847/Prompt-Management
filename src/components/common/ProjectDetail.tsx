@@ -6,7 +6,7 @@ import { Slider } from '../ui/slider';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../ui/alert-dialog";
 import Loading from './Loading';
 import { toast } from '../../hooks/use-toast';
@@ -18,12 +18,6 @@ export interface Prompt {
   name: string;
   description: string;
   confidenceScore: number;
-}
-
-interface PromptCredentials {
-  project_id: string;
-  prompt_id: string;
-  secret_key: string;
 }
 
 interface PromptCredentials {
@@ -50,6 +44,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
   const [editedPromptDescription, setEditedPromptDescription] = useState('');
   const [editedConfidenceScore, setEditedConfidenceScore] = useState(50);
   const [isPromptEditing, setIsPromptEditing] = useState(false);
+  const [showPromptDialog, setShowPromptDialog] = useState(false);
 
   // --- Credential States ---
   // const [showCredentials, setShowCredentials] = useState(false);
@@ -212,6 +207,8 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
   };
 
   // --- Prompt Handlers ---
+
+  // Modify savePromptHandler
   const savePromptHandler = async () => {
     setIsLoading(true);
     try {
@@ -236,6 +233,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
           ));
           setIsPromptEditing(false);
           setSelectedPromptId(null);
+          setShowPromptDialog(false);
         }
       } else {
         // Create new prompt
@@ -261,6 +259,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
           setPrompts([...prompts, newPrompt]);
           setIsPromptEditing(false);
           clearPromptForm();
+          setShowPromptDialog(false);
         }
       }
     } catch (error) {
@@ -307,6 +306,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
     setEditedPromptDescription(promptItem.description);
     setEditedConfidenceScore(promptItem.confidenceScore);
     setIsPromptEditing(true);
+    setShowPromptDialog(true);
   };
 
   const clearPromptForm = () => {
@@ -320,6 +320,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
     setSelectedPromptId(null);
     clearPromptForm();
     setIsPromptEditing(true);
+    setShowPromptDialog(true);
   };
 
   // Sync prompt edit fields when prompts update
@@ -516,174 +517,163 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
                   </div>
 
                   {/* Render prompt cards */}
-                  {/* Render prompt cards */}
                   {prompts.map((promptItem, index) => (
-                    (!isPromptEditing || selectedPromptId !== promptItem.id) && (
-                      <div key={promptItem.id} className="border rounded-lg p-4 mb-4 shadow-sm">
-                        <div className="flex justify-between items-center mb-4">
-                          <div>
-                            <h3 className="text-lg font-semibold mb-1">
-                              Prompt {index + 1}: {promptItem.name}
-                            </h3>
-                            <div className="flex items-center space-x-2">
-                              <span className="text-sm text-gray-500">Confidence Score:</span>
-                              <span className="text-sm font-semibold text-indigo-600">
-                                {promptItem.confidenceScore}%
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex space-x-2">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button
-                                  onClick={() => editPromptHandler(promptItem)}
-                                  className="p-2 rounded-full hover:bg-indigo-50 text-indigo-600 transition-colors duration-200"
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                  </svg>
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Edit prompt</p>
-                              </TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button
-                                  onClick={() => deletePromptHandler(promptItem.id)}
-                                  className="p-2 rounded-full hover:bg-red-50 text-red-600 transition-colors duration-200"
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Delete prompt</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </div>
-                        </div>
+                    <div key={promptItem.id} className="border rounded-lg p-4 mb-4 shadow-sm">
+                      <div className="flex justify-between items-center mb-4">
                         <div>
-                          <h4 className="text-sm font-medium text-gray-500 mb-2">Description</h4>
-                          <p className="text-gray-700">{promptItem.description}</p>
+                          <h3 className="text-lg font-semibold mb-1">
+                            Prompt {index + 1}: {promptItem.name}
+                          </h3>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-500">Confidence Score:</span>
+                            <span className="text-sm font-semibold text-indigo-600">
+                              {promptItem.confidenceScore}%
+                            </span>
+                          </div>
                         </div>
-                        <div className="mt-4 flex justify-end">
+                        <div className="flex space-x-2">
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button
-                                variant="outline"
-                                className="bg-indigo-600 text-white hover:bg-indigo-700 flex items-center space-x-2"
-                                onClick={() => {
-                                  setSelectedPromptId(promptItem.id);
-                                  setShowCredentials(true);
-                                }}
+                              <button
+                                onClick={() => editPromptHandler(promptItem)}
+                                className="p-2 rounded-full hover:bg-indigo-50 text-indigo-600 transition-colors duration-200"
                               >
-                                <Eye className="w-4 h-4" />
-                                <span>Credentials</span>
-                              </Button>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>View credentials</p>
+                              <p>Edit prompt</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={() => deletePromptHandler(promptItem.id)}
+                                className="p-2 rounded-full hover:bg-red-50 text-red-600 transition-colors duration-200"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Delete prompt</p>
                             </TooltipContent>
                           </Tooltip>
                         </div>
                       </div>
-                    )
-                  ))}
-                </div>
-
-                {/* Prompt Form for Create/Update */}
-                {(isPromptEditing || (!selectedPromptId && prompts.length === 0)) && (
-                  <div className="border rounded-lg p-4 shadow-sm">
-                    <div className="space-y-4">
                       <div>
-                        <label className="text-sm font-medium text-gray-700 mb-1 block">
-                          Prompt Name
-                        </label>
-                        <Input
-                          value={editedPromptName}
-                          onChange={(e) => setEditedPromptName(e.target.value)}
-                          placeholder="Enter prompt name"
-                        />
+                        <h4 className="text-sm font-medium text-gray-500 mb-2">Description</h4>
+                        <p className="text-gray-700">{promptItem.description}</p>
                       </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-700 mb-1 block">
-                          Description
-                        </label>
-                        <Textarea
-                          value={editedPromptDescription}
-                          onChange={(e) => setEditedPromptDescription(e.target.value)}
-                          placeholder="Enter prompt description"
-                          className="min-h-[100px]"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-700 mb-1 block">
-                          Confidence Score
-                        </label>
-                        <div className="flex items-center space-x-4">
-                          <Slider
-                            value={[editedConfidenceScore]}
-                            onValueChange={(value) => setEditedConfidenceScore(value[0])}
-                            max={100}
-                            step={1}
-                            className="flex-1"
-                          />
-                          <span className="text-sm font-medium text-gray-900 w-12 text-right">
-                            {editedConfidenceScore}%
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-6 flex justify-end space-x-2">
-                      {isPromptEditing && (
+                      <div className="mt-4 flex justify-end">
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button
                               variant="outline"
+                              className="bg-indigo-600 text-white hover:bg-indigo-700 flex items-center space-x-2"
                               onClick={() => {
-                                setIsPromptEditing(false);
-                                if (!selectedPromptId) {
-                                  clearPromptForm();
-                                } else {
-                                  const promptToRestore = prompts.find(p => p.id === selectedPromptId);
-                                  if (promptToRestore) {
-                                    setEditedPromptName(promptToRestore.name);
-                                    setEditedPromptDescription(promptToRestore.description);
-                                    setEditedConfidenceScore(promptToRestore.confidenceScore);
-                                  }
-                                }
+                                setSelectedPromptId(promptItem.id);
+                                setShowCredentials(true);
                               }}
                             >
-                              Cancel
+                              <Eye className="w-4 h-4" />
+                              <span>Credentials</span>
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>Cancel editing</p>
+                            <p>View credentials</p>
                           </TooltipContent>
                         </Tooltip>
-                      )}
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            onClick={savePromptHandler}
-                            disabled={!editedPromptName.trim()}
-                            className="bg-indigo-600 text-white hover:bg-indigo-700"
-                          >
-                            {selectedPromptId ? 'Update Prompt' : 'Create Prompt'}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{selectedPromptId ? 'Update prompt' : 'Create prompt'}</p>
-                        </TooltipContent>
-                      </Tooltip>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  ))}
+                </div>
               </div>
             </div>
+
+
+            {/* Prompt Create/Edit Dialog */}
+            <Dialog
+              open={showPromptDialog}
+              onOpenChange={(open) => {
+                setShowPromptDialog(open);
+                if (!open) {
+                  setIsPromptEditing(false);
+                  clearPromptForm();
+                }
+              }}
+            >
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="text-center text-xl font-semibold text-indigo-600">
+                    {selectedPromptId ? 'Edit Prompt' : 'Create New Prompt'}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-6 py-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Prompt Name</label>
+                    <Input
+                      value={editedPromptName}
+                      onChange={(e) => setEditedPromptName(e.target.value)}
+                      placeholder="Enter prompt name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Description</label>
+                    <Textarea
+                      value={editedPromptDescription}
+                      onChange={(e) => setEditedPromptDescription(e.target.value)}
+                      placeholder="Enter prompt description"
+                      className="min-h-[100px]"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Confidence Score</label>
+                    <div className="flex items-center space-x-4">
+                      <Slider
+                        value={[editedConfidenceScore]}
+                        onValueChange={(value) => setEditedConfidenceScore(value[0])}
+                        max={100}
+                        step={1}
+                        className="flex-1"
+                      />
+                      <span className="text-sm font-medium text-gray-900 w-12 text-right">
+                        {editedConfidenceScore}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowPromptDialog(false);
+                      setIsPromptEditing(false);
+                      clearPromptForm();
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={savePromptHandler}
+                        disabled={!editedPromptName.trim()}
+                        className="bg-indigo-600 text-white hover:bg-indigo-700"
+                      >
+                        {selectedPromptId ? 'Update Prompt' : 'Create Prompt'}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{selectedPromptId ? 'Update prompt' : 'Create prompt'}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
             {/* Credentials Modal */}
             <Dialog open={showCredentials} onOpenChange={(open) => {
