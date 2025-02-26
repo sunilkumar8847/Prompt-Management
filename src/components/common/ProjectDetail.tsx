@@ -2,23 +2,16 @@
 import React, { useState, useEffect } from 'react';
 import { IoIosArrowBack } from "react-icons/io";
 import { Plus, Eye, EyeOff, X } from 'lucide-react';
-import { Slider } from '../ui/slider';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../ui/alert-dialog";
 import Loading from './Loading';
 import { toast } from '../../hooks/use-toast';
 import { promptApi, projectApi } from '../../Api/apiClient';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../ui/tooltip';
-
-export interface Prompt {
-  id: string;
-  name: string;
-  description: string;
-  confidenceScore: number;
-}
+import NewPrompt, { Prompt } from './NewPrompt'; // Import the new component
 
 interface PromptCredentials {
   project_id: string;
@@ -40,22 +33,18 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [editedPromptName, setEditedPromptName] = useState('');
-  const [editedPromptDescription, setEditedPromptDescription] = useState('');
-  const [editedConfidenceScore, setEditedConfidenceScore] = useState(50);
-  const [isPromptEditing, setIsPromptEditing] = useState(false);
   const [showPromptDialog, setShowPromptDialog] = useState(false);
+  const [promptFormData, setPromptFormData] = useState({
+    name: '',
+    description: '',
+    confidenceScore: 50
+  });
 
   // --- Credential States ---
-  // const [showCredentials, setShowCredentials] = useState(false);
-  // const [credentials, setCredentials] = useState<PromptCredentials | null>(null);
-  // const [isCredentialsLoading, setIsCredentialsLoading] = useState(false);
-  // const [showSecret, setShowSecret] = useState(false);
   const [credentialsMap, setCredentialsMap] = useState<Record<string, PromptCredentials>>({});
   const [isCredentialsLoading, setIsCredentialsLoading] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
   const [showCredentials, setShowCredentials] = useState(false);
-
 
   // --- Project Edit States ---
   const [isProjectEditing, setIsProjectEditing] = useState(false);
@@ -157,28 +146,6 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
       setShowDeleteConfirm(false);
     }
   };
-  // const deleteProjectHandler = async () => {
-  //   setIsLoading(true);
-  //   try {
-  //     const response = await projectApi.deleteProject(project.id);
-  //     if (response.status === 200) {
-  //       toast({
-  //         title: "Success",
-  //         description: "Project deleted successfully",
-  //         variant: "default",
-  //       });
-  //       onBack();
-  //     }
-  //   } catch (error) {
-  //     toast({
-  //       title: "Error",
-  //       description: "Failed to delete project",
-  //       variant: "destructive"
-  //     });
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // };
 
   const updateProjectHandler = async () => {
     setIsLoading(true);
@@ -207,72 +174,6 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
   };
 
   // --- Prompt Handlers ---
-
-  // Modify savePromptHandler
-  const savePromptHandler = async () => {
-    setIsLoading(true);
-    try {
-      if (isPromptEditing && selectedPromptId) {
-        // Update prompt
-        const response = await promptApi.updatePrompt(selectedPromptId, {
-          name: editedPromptName,
-          prompt: editedPromptName,
-          description: editedPromptDescription,
-          confidence_score: editedConfidenceScore
-        });
-        if (response.status === 200) {
-          toast({
-            title: "Success",
-            description: "Prompt updated successfully",
-            variant: "default",
-          });
-          setPrompts(prompts.map(p =>
-            p.id === selectedPromptId
-              ? { id: p.id, name: editedPromptName, description: editedPromptDescription, confidenceScore: editedConfidenceScore }
-              : p
-          ));
-          setIsPromptEditing(false);
-          setSelectedPromptId(null);
-          setShowPromptDialog(false);
-        }
-      } else {
-        // Create new prompt
-        const newPromptData = {
-          prompt_name: editedPromptName,
-          prompt: editedPromptName,
-          description: editedPromptDescription,
-          confidence_score: editedConfidenceScore
-        };
-        const response = await promptApi.createPrompt(project.id, newPromptData);
-        if (response.status === 200 || response.status === 201) {
-          toast({
-            title: "Success",
-            description: "Prompt created successfully",
-            variant: "default",
-          });
-          const newPrompt: Prompt = {
-            id: response.data.id,
-            name: editedPromptName,
-            description: editedPromptDescription,
-            confidenceScore: editedConfidenceScore
-          };
-          setPrompts([...prompts, newPrompt]);
-          setIsPromptEditing(false);
-          clearPromptForm();
-          setShowPromptDialog(false);
-        }
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to save prompt",
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const deletePromptHandler = async (promptId: string) => {
     setIsLoading(true);
     try {
@@ -286,7 +187,6 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
         setPrompts(prompts.filter(p => p.id !== promptId));
         if (selectedPromptId === promptId) {
           setSelectedPromptId(null);
-          clearPromptForm();
         }
       }
     } catch (error) {
@@ -302,38 +202,33 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
 
   const editPromptHandler = (promptItem: Prompt) => {
     setSelectedPromptId(promptItem.id);
-    setEditedPromptName(promptItem.name);
-    setEditedPromptDescription(promptItem.description);
-    setEditedConfidenceScore(promptItem.confidenceScore);
-    setIsPromptEditing(true);
+    setPromptFormData({
+      name: promptItem.name,
+      description: promptItem.description,
+      confidenceScore: promptItem.confidenceScore
+    });
     setShowPromptDialog(true);
-  };
-
-  const clearPromptForm = () => {
-    setEditedPromptName('');
-    setEditedPromptDescription('');
-    setEditedConfidenceScore(50);
-    // setCredentials(null);
   };
 
   const addNewPromptHandler = () => {
     setSelectedPromptId(null);
-    clearPromptForm();
-    setIsPromptEditing(true);
+    setPromptFormData({
+      name: '',
+      description: '',
+      confidenceScore: 50
+    });
     setShowPromptDialog(true);
   };
 
-  // Sync prompt edit fields when prompts update
-  useEffect(() => {
-    if (selectedPromptId) {
-      const promptToEdit = prompts.find(p => p.id === selectedPromptId);
-      if (promptToEdit) {
-        setEditedPromptName(promptToEdit.name);
-        setEditedPromptDescription(promptToEdit.description);
-        setEditedConfidenceScore(promptToEdit.confidenceScore);
-      }
-    }
-  }, [selectedPromptId, prompts]);
+  const handlePromptCreated = (newPrompt: Prompt) => {
+    setPrompts([...prompts, newPrompt]);
+  };
+
+  const handlePromptUpdated = (updatedPrompt: Prompt) => {
+    setPrompts(prompts.map(p => 
+      p.id === updatedPrompt.id ? updatedPrompt : p
+    ));
+  };
 
   return (
     <TooltipProvider>
@@ -594,86 +489,16 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
               </div>
             </div>
 
-
-            {/* Prompt Create/Edit Dialog */}
-            <Dialog
-              open={showPromptDialog}
-              onOpenChange={(open) => {
-                setShowPromptDialog(open);
-                if (!open) {
-                  setIsPromptEditing(false);
-                  clearPromptForm();
-                }
-              }}
-            >
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle className="text-center text-xl font-semibold text-indigo-600">
-                    {selectedPromptId ? 'Edit Prompt' : 'Create New Prompt'}
-                  </DialogTitle>
-                </DialogHeader>
-                <div className="space-y-6 py-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Prompt Name</label>
-                    <Input
-                      value={editedPromptName}
-                      onChange={(e) => setEditedPromptName(e.target.value)}
-                      placeholder="Enter prompt name"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Description</label>
-                    <Textarea
-                      value={editedPromptDescription}
-                      onChange={(e) => setEditedPromptDescription(e.target.value)}
-                      placeholder="Enter prompt description"
-                      className="min-h-[100px]"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Confidence Score</label>
-                    <div className="flex items-center space-x-4">
-                      <Slider
-                        value={[editedConfidenceScore]}
-                        onValueChange={(value) => setEditedConfidenceScore(value[0])}
-                        max={100}
-                        step={1}
-                        className="flex-1"
-                      />
-                      <span className="text-sm font-medium text-gray-900 w-12 text-right">
-                        {editedConfidenceScore}%
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setShowPromptDialog(false);
-                      setIsPromptEditing(false);
-                      clearPromptForm();
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        onClick={savePromptHandler}
-                        disabled={!editedPromptName.trim()}
-                        className="bg-indigo-600 text-white hover:bg-indigo-700"
-                      >
-                        {selectedPromptId ? 'Update Prompt' : 'Create Prompt'}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{selectedPromptId ? 'Update prompt' : 'Create prompt'}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            {/* Use the NewPrompt component */}
+            <NewPrompt
+              projectId={project.id}
+              isOpen={showPromptDialog}
+              onClose={() => setShowPromptDialog(false)}
+              selectedPromptId={selectedPromptId}
+              initialPromptData={promptFormData}
+              onPromptCreated={handlePromptCreated}
+              onPromptUpdated={handlePromptUpdated}
+            />
 
             {/* Credentials Modal */}
             <Dialog open={showCredentials} onOpenChange={(open) => {
@@ -723,16 +548,39 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
                         <button
                           type="button"
                           onClick={() => setShowSecret((prev) => !prev)}
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2"
-                          aria-label="Toggle secret key visibility"
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-600 hover:text-gray-900"
                         >
                           {showSecret ? (
-                            <EyeOff className="w-4 h-4 text-gray-500" />
+                            <EyeOff className="h-5 w-5" />
                           ) : (
-                            <Eye className="w-4 h-4 text-gray-500" />
+                            <Eye className="h-5 w-5" />
                           )}
                         </button>
                       </div>
+                    </div>
+                    <div className="flex justify-end space-x-2 pt-4">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          if (selectedPromptId && credentialsMap[selectedPromptId]?.secret_key) {
+                            navigator.clipboard.writeText(credentialsMap[selectedPromptId].secret_key);
+                            toast({
+                              title: "Success",
+                              description: "Secret key copied to clipboard",
+                              variant: "default",
+                            });
+                          }
+                        }}
+                        className="text-indigo-600 border-indigo-600 hover:bg-indigo-50"
+                      >
+                        Copy Secret Key
+                      </Button>
+                      <Button
+                        onClick={() => setShowCredentials(false)}
+                        className="bg-indigo-600 text-white hover:bg-indigo-700"
+                      >
+                        Close
+                      </Button>
                     </div>
                   </div>
                 )}
