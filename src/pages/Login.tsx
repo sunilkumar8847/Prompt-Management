@@ -8,7 +8,7 @@ import { toast } from '../hooks/use-toast';
 import { Eye, EyeOff } from 'lucide-react';
 
 const Login: React.FC = () => {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const { login, loading, error } = useAuth();
@@ -16,7 +16,7 @@ const Login: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email.trim() || !password.trim()) {
+    if (!username.trim() || !password.trim()) {
       toast({
         title: "Error",
         description: "Please fill in all fields",
@@ -26,7 +26,7 @@ const Login: React.FC = () => {
     }
     
     try {
-      await login(email, password);
+      await login(username, password);
     } catch (err) {
       // Error is handled in the AuthContext
     }
@@ -49,15 +49,15 @@ const Login: React.FC = () => {
           
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium text-gray-700">
-                Email Address
+              <label htmlFor="username" className="text-sm font-medium text-gray-700">
+                Username
               </label>
               <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Enter your username"
                 required
                 className="w-full"
               />

@@ -4,15 +4,15 @@ import { authApi } from '../Api/apiClient';
 import { useNavigate } from 'react-router-dom';
 
 interface User {
-  email: string;
-  username?: string;
+  username: string;
+  email?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   loading: boolean;
@@ -39,21 +39,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (username: string, password: string) => {
     setLoading(true);
     setError(null);
     
     try {
-      const response = await authApi.login({ email, password });
+      const response = await authApi.login({ username, password });
       const { access_token } = response.data;
       
       // Save token to localStorage
       localStorage.setItem('token', access_token);
       setToken(access_token);
       
-      // Fetch user data from backend to get username
-      // For now, we'll use the email as a fallback
-      const userObj = { email, username: email };
+      // Create user object
+      const userObj = { username };
       localStorage.setItem('user', JSON.stringify(userObj));
       setUser(userObj);
       
@@ -71,19 +70,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     try {
       await authApi.register({ username, email, password });
+      
       // After successful registration, log the user in
-      // We'll store the username provided during registration
-      const userObj = { email, username };
-      localStorage.setItem('user', JSON.stringify(userObj));
-      setUser(userObj);
-      
-      // Now login to get the token
-      const response = await authApi.login({ email, password });
-      const { access_token } = response.data;
-      localStorage.setItem('token', access_token);
-      setToken(access_token);
-      
-      navigate('/');
+      await login(username, password);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Registration failed. Please try again.');
     } finally {

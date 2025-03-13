@@ -20,7 +20,7 @@ interface PromptHistoryProps {
   isOpen: boolean;
   onClose: () => void;
   promptId: string | null;
-  onPromptReverted: () => void;
+  onPromptReverted: (promptData?: PromptVersion) => void; // Modified to include the reverted prompt data
 }
 
 const PromptHistory: React.FC<PromptHistoryProps> = ({ 
@@ -33,7 +33,6 @@ const PromptHistory: React.FC<PromptHistoryProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [revertingVersionId, setRevertingVersionId] = useState<string | null>(null);
 
-  // Load prompt versions when the component opens and promptId changes
   useEffect(() => {
     if (isOpen && promptId) {
       loadPromptVersions();
@@ -66,11 +65,8 @@ const PromptHistory: React.FC<PromptHistoryProps> = ({
     }
   };
 
-  // Determine current version by finding the one with the latest updated_at timestamp
   const currentVersionId = promptVersions.length > 0 
-    ? promptVersions.reduce((latest, version) => 
-        new Date(version.updated_at) > new Date(latest.updated_at) ? version : latest
-      ).version_id 
+    ? promptVersions[0].version_id 
     : null;
 
   const revertToVersion = async (versionId: string) => {
@@ -87,8 +83,11 @@ const PromptHistory: React.FC<PromptHistoryProps> = ({
           variant: "default",
         });
         
-        // Notify parent component to refresh prompts list
-        onPromptReverted();
+        // Find the version that was reverted to
+        const revertedVersion = promptVersions.find(v => v.version_id === versionId);
+        
+        // Notify parent component with the reverted version data
+        onPromptReverted(revertedVersion);
         
         // Close the history dialog
         onClose();
@@ -163,6 +162,12 @@ const PromptHistory: React.FC<PromptHistoryProps> = ({
                       <div>
                         <h4 className="text-xs font-medium text-gray-500">Confidence Score:</h4>
                         <p className="text-sm text-gray-700">{version.confidence_score}%</p>
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-medium text-gray-500">Prompt Content:</h4>
+                        <div className="text-sm text-gray-700 p-2 bg-gray-50 rounded border mt-1 max-h-24 overflow-y-auto">
+                          {version.prompt}
+                        </div>
                       </div>
                     </div>
                   </div>

@@ -251,9 +251,42 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
     setShowHistory(true);
   };
 
-  const handlePromptReverted = () => {
-    // Refresh prompts list after a revert operation
-    loadPrompts();
+  const handlePromptReverted = (revertedVersion?: any) => {
+    // If we have detailed version data from the revert operation
+    if (revertedVersion) {
+      // Update the specific prompt in the prompts list with the reverted data
+      setPrompts(prompts.map(p => {
+        if (p.id === revertedVersion.prompt_id) {
+          return {
+            ...p,
+            name: revertedVersion.name,
+            description: revertedVersion.description,
+            confidenceScore: revertedVersion.confidence_score,
+            // Include any other fields from the version that should update the prompt
+          };
+        }
+        return p;
+      }));
+      
+      // If the reverted prompt is currently selected in the form, update the form data
+      if (selectedPromptId === revertedVersion.prompt_id) {
+        setPromptFormData({
+          name: revertedVersion.name,
+          description: revertedVersion.description,
+          confidenceScore: revertedVersion.confidence_score
+        });
+      }
+      
+      // Optional: Show success message
+      toast({
+        title: "Success",
+        description: `Prompt updated to version from ${new Date(revertedVersion.created_at).toLocaleString()}`,
+        variant: "default",
+      });
+    } else {
+      // Fallback to original behavior - refresh all prompts
+      loadPrompts();
+    }
   };
 
   return (

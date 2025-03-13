@@ -183,7 +183,7 @@ const Dashboard: React.FC = () => {
               Welcome to your Prompt Management
             </h1>
             <p className="text-gray-600">
-              Hello, {user?.email || 'User'}! Manage your projects and prompts in one click. Create and organize your data in seconds.
+              Hello, {user?.username || 'User'}! Manage your projects and prompts in one click. Create and organize your data in seconds.
             </p>
           </div>
 

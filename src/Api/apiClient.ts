@@ -31,7 +31,7 @@ apiClient.interceptors.request.use(
 export const authApi = {
   register: (data: { username: string; email: string; password: string }) =>
     apiClient.post('/register', data),
-  login: (data: { email: string; password: string }) =>
+  login: (data: { username: string; password: string }) =>
     apiClient.post('/login', data),
 };
 
